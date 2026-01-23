@@ -96,11 +96,13 @@ class SGTHelperGUI:
         content_btn_frame.grid(row=2, column=0, sticky=(tk.W, tk.E))
         
         ttk.Button(content_btn_frame, text="Add Entry", command=self.add_entry).grid(row=0, column=0, padx=2, pady=5, sticky=(tk.W, tk.E))
-        ttk.Button(content_btn_frame, text="Delete Selected", command=self.delete_entry).grid(row=0, column=1, padx=2, pady=5, sticky=(tk.W, tk.E))
-        ttk.Button(content_btn_frame, text="Save", command=self.save_and_refresh).grid(row=0, column=2, padx=2, pady=5, sticky=(tk.W, tk.E))
+        ttk.Button(content_btn_frame, text="Edit Entry", command=self.edit_entry).grid(row=0, column=1, padx=2, pady=5, sticky=(tk.W, tk.E))
+        ttk.Button(content_btn_frame, text="Delete Selected", command=self.delete_entry).grid(row=0, column=2, padx=2, pady=5, sticky=(tk.W, tk.E))
+        ttk.Button(content_btn_frame, text="Save", command=self.save_and_refresh).grid(row=0, column=3, padx=2, pady=5, sticky=(tk.W, tk.E))
         content_btn_frame.columnconfigure(0, weight=1)
         content_btn_frame.columnconfigure(1, weight=1)
         content_btn_frame.columnconfigure(2, weight=1)
+        content_btn_frame.columnconfigure(3, weight=1)
         
         # Status bar
         self.status_label = ttk.Label(main_frame, text="Ready", relief=tk.SUNKEN, anchor=tk.W)
@@ -281,6 +283,86 @@ class SGTHelperGUI:
         btn_frame = ttk.Frame(dialog)
         btn_frame.pack(pady=10)
         ttk.Button(btn_frame, text="Delete", command=confirm).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="Cancel", command=cancel).pack(side=tk.LEFT, padx=5)
+        
+        listbox.bind('<Double-Button-1>', lambda e: confirm())
+    
+    def edit_entry(self):
+        """Edit an existing entry in the current topic."""
+        if not self.current_topic:
+            messagebox.showwarning("Warning", "Please select a topic first!")
+            return
+        
+        entries = self.data_store[self.current_topic]
+        if not entries:
+            messagebox.showinfo("Info", "No entries to edit!")
+            return
+        
+        # Show a dialog to select entry to edit
+        dialog = tk.Toplevel(self.root)
+        dialog.title(f"Edit Entry from {self.current_topic}")
+        dialog.geometry("500x350")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        ttk.Label(dialog, text="Select entry to edit:", font=("Arial", 11)).pack(pady=10)
+        
+        listbox = tk.Listbox(dialog, font=("Arial", 11), height=8)
+        listbox.pack(pady=5, padx=10, fill=tk.BOTH, expand=True)
+        
+        for i, entry in enumerate(entries, 1):
+            # Show first 50 chars of entry
+            preview = entry[:50] + "..." if len(entry) > 50 else entry
+            listbox.insert(tk.END, f"{i}. {preview}")
+        
+        def confirm():
+            selection = listbox.curselection()
+            if selection:
+                index = selection[0]
+                # Open edit dialog with the selected entry's content
+                edit_dialog = tk.Toplevel(dialog)
+                edit_dialog.title(f"Edit Entry {index + 1}")
+                edit_dialog.geometry("500x250")
+                edit_dialog.transient(dialog)
+                edit_dialog.grab_set()
+                
+                ttk.Label(edit_dialog, text="Edit entry content:", font=("Arial", 11)).pack(pady=10)
+                
+                text_widget = scrolledtext.ScrolledText(edit_dialog, wrap=tk.WORD, width=50, height=8, font=("Arial", 11))
+                text_widget.pack(pady=5, padx=10, fill=tk.BOTH, expand=True)
+                text_widget.insert(1.0, entries[index])
+                text_widget.focus()
+                
+                def save_edit():
+                    new_content = text_widget.get(1.0, tk.END).strip()
+                    if new_content:
+                        self.data_store[self.current_topic][index] = new_content
+                        self.display_topic_content(self.current_topic)
+                        self.save_data()
+                        self.status_label.config(text=f"Edited entry {index + 1} in: {self.current_topic}")
+                        edit_dialog.destroy()
+                        dialog.destroy()
+                    else:
+                        messagebox.showwarning("Warning", "Entry content cannot be empty!")
+                
+                def cancel_edit():
+                    edit_dialog.destroy()
+                
+                btn_frame = ttk.Frame(edit_dialog)
+                btn_frame.pack(pady=10)
+                ttk.Button(btn_frame, text="Save", command=save_edit).pack(side=tk.LEFT, padx=5)
+                ttk.Button(btn_frame, text="Cancel", command=cancel_edit).pack(side=tk.LEFT, padx=5)
+                
+                text_widget.bind('<Control-Return>', lambda e: save_edit())
+            else:
+                messagebox.showwarning("Warning", "Please select an entry to edit!")
+        
+        def cancel():
+            dialog.destroy()
+        
+        btn_frame = ttk.Frame(dialog)
+        btn_frame.pack(pady=10)
+        ttk.Button(btn_frame, text="Edit", command=confirm).pack(side=tk.LEFT, padx=5)
         ttk.Button(btn_frame, text="Cancel", command=cancel).pack(side=tk.LEFT, padx=5)
         
         listbox.bind('<Double-Button-1>', lambda e: confirm())
