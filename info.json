@@ -1,11 +1,41 @@
 {
-    "Theorems": [],
+    "Theorems": [
+        "Courant-Fisher Theorem: given a symmetric matrix A, eigenvalues $a_1 \\geq ... \\geq a_n$, $a_k = \\max_{\\dim(S)=k} \\min_{x \\in S} \\frac{x^TAx}{x^Tx} = \\min_{T \\subseteq \\mathbb{R}} \\max_{x \\in T} \\frac{x^TAx}{x^Tx}$",
+        "Courant-Fisher Lemma: $a_1 = \\max_{x} \\frac{x^TAx}{x^Tx}$"
+    ],
     "Types of graphs": [
         "Dense graph: A graph where the number of edges is close to the maximal number of edges possible in the graph. $|E| = \\theta(n^2)$",
         "Sparse graph: A graph where the number of edges is close to the minimal number of edges possible. |E| = O(n)",
         "Expander graph: For every set of vertices S with $S \\leq \\frac{n}{2}$, adding the set of neighbors of vertices in S to S will increase the size of the set by at least some c|S|."
     ],
     "Eigenvectors": [
-        "For eigenvectors $v_1$, $v_2$, and eigenvalues $a_1$, $a_2$, $a_1 \\neq a_2$, $v_1 \\perp v_2$."
+        "For eigenvectors $v_1$, $v_2$, and eigenvalues $a_1$, $a_2$, $a_1 \\neq a_2$, $v_1 \\perp v_2$. This is assuming A is symmetric."
+    ],
+    "General Ideas": [
+        "The eigenvalues of adjacency matrices reveal global graph properties not apparent from edge structure."
+    ],
+    "Laplacians": [
+        "$L_G = \\sum_{e}L_e$",
+        "$x^TL_ex = (x(i) - x(j))^2 \\Rightarrow x^TL_Gx = \\sum_{(u, v) \\in E}(x(u) - x(v))^2$",
+        "$L_{G \\cup H} = L_G + L_H$ provided G and H share no edges."
+    ],
+    "Equations": [
+        "$L_G = D_G - A_G$"
+    ],
+    "Eigenvalues": [
+        "If $\\lambda_2$ > 0, then the graph is connected. The greater $\\lambda_2$ is the denser the graph."
+    ],
+    "Lin Alg. Fundamentals": [
+        "Rank: number of linearly independent columns in a matrix",
+        "Kernel/null space: The linear spaceof vectors that multiply with a matrix to equal 0.",
+        "rank + nullity = n for an mxn matrix",
+        "Self-adjoint: where T = T^*$ or $T = T^T$ (symmetric matrix). By definition T is self-adjoint if <Tv | w> = <v | Tw>.",
+        "Todo: Incidence matrix",
+        "For dot products: $<av_1 | v_2 > = a<v_1 | v_2>.$ For vectors $v_1, v_2 \\in \\mathbb{R}, <v_1 | av_2> = a<v_1 | v_2>$"
+    ],
+    "Fourier Transforms": [
+        "Fundamentally fourier transforms are a changing of basis of a function. Essentially rewriting a function f(x) as $f(1) * e_1 + f(2) * e_2 + ... f(n) * e_n$.",
+        "We use the Fourier Transform to change basis onto the eigenbasis of the Laplacian. If $L_G$ has eigenvectors $\\{f_1, ..., f_n\\}$, we can create an eigenbasis where $v_i = \\sum c_i*f_i$",
+        "From there, we can then define arbitrary x as $x = \\sum c_i * v_i$. By setting our eigenbasis that we create to be unitary, the eigenvector part of expressions will cancel out when dot producted against itself to make theorems simpler."
     ]
 }
