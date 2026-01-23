@@ -204,14 +204,15 @@ class SGTHelperGUI:
                 rgb_img.paste(img, mask=img.split()[3])
                 img = rgb_img
             
-            # Crop white space, but add a bit of white padding at the bottom for alignment
+            # Crop white space, but add a bit of white padding at the bottom and right for spacing
             bbox = img.getbbox()
             if bbox:
                 left, top, right, bottom = bbox
                 # Add a few pixels of white padding at the bottom to align with text baseline
-                bottom_padding = 2  # Add 3 pixels of white space at bottom
+                bottom_padding = 2  # Add 2 pixels of white space at bottom
+                right_padding = 2  # Add 2 pixels of white space at right
                 # Create new image with white background and padding
-                new_width = right - left
+                new_width = (right - left) + right_padding
                 new_height = (bottom - top) + bottom_padding
                 padded_img = Image.new('RGB', (new_width, new_height), (255, 255, 255))
                 # Paste the cropped image onto the white background
