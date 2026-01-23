@@ -127,7 +127,7 @@ class SGTHelperGUI:
         
         ttk.Button(content_btn_frame, text="Add Entry", command=self.add_entry).grid(row=0, column=0, padx=2, pady=5, sticky=(tk.W, tk.E))
         ttk.Button(content_btn_frame, text="Edit Entry", command=self.edit_entry).grid(row=0, column=1, padx=2, pady=5, sticky=(tk.W, tk.E))
-        ttk.Button(content_btn_frame, text="Delete Selected", command=self.delete_entry).grid(row=0, column=2, padx=2, pady=5, sticky=(tk.W, tk.E))
+        ttk.Button(content_btn_frame, text="Delete Entry", command=self.delete_entry).grid(row=0, column=2, padx=2, pady=5, sticky=(tk.W, tk.E))
         ttk.Button(content_btn_frame, text="Save", command=self.save_and_refresh).grid(row=0, column=3, padx=2, pady=5, sticky=(tk.W, tk.E))
         content_btn_frame.columnconfigure(0, weight=1)
         content_btn_frame.columnconfigure(1, weight=1)
@@ -500,17 +500,12 @@ class SGTHelperGUI:
             messagebox.showwarning("Warning", "Please select a topic first!")
             return
         
-        # Get cursor position to determine which entry is selected
-        cursor_pos = self.content_text.index(tk.INSERT)
-        line_num = int(cursor_pos.split('.')[0])
-        
-        # Find which entry number this line belongs to
         entries = self.data_store[self.current_topic]
         if not entries:
             messagebox.showinfo("Info", "No entries to delete!")
             return
         
-        # Simple approach: show a dialog to select entry number
+        # Show a dialog to select entry to delete
         dialog = tk.Toplevel(self.root)
         dialog.title(f"Delete Entry from {self.current_topic}")
         dialog.geometry("400x300")
