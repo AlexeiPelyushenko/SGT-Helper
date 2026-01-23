@@ -1,8 +1,14 @@
 import json
 import os
+import re
+import io
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
-from typing import Dict, List
+from typing import Dict, List, Tuple
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+from PIL import Image, ImageTk
 
 class SGTHelperGUI:
     def __init__(self, root):
@@ -14,6 +20,8 @@ class SGTHelperGUI:
         self.json_path = "info.json"
         self.data_store = self.load_data()
         self.current_topic = None
+        self.latex_cache = {}  # Cache rendered LaTeX images
+        self.last_canvas_width = 0  # Track canvas width for resize detection
         
         self.setup_ui()
         self.refresh_topic_list()
@@ -86,10 +94,32 @@ class SGTHelperGUI:
                                      font=("Arial", 12, "bold"))
         self.topic_label.grid(row=0, column=0, pady=(0, 10), sticky=tk.W)
         
-        # Content display with scrollbar
-        self.content_text = scrolledtext.ScrolledText(right_panel, wrap=tk.WORD, 
-                                                      font=("Arial", 11), height=15)
-        self.content_text.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        # Content display with scrollbar - using Canvas for LaTeX rendering
+        content_frame = ttk.Frame(right_panel)
+        content_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        content_frame.columnconfigure(0, weight=1)
+        content_frame.rowconfigure(0, weight=1)
+        
+        scrollbar = ttk.Scrollbar(content_frame)
+        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        
+        self.content_canvas = tk.Canvas(content_frame, yscrollcommand=scrollbar.set,
+                                       bg="white", highlightthickness=0)
+        self.content_canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        scrollbar.config(command=self.content_canvas.yview)
+        
+        # Bind mousewheel to canvas
+        def on_mousewheel(event):
+            self.content_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        self.content_canvas.bind_all("<MouseWheel>", on_mousewheel)
+        
+        # Handle canvas resize to redraw content (only if width changed significantly)
+        def on_canvas_configure(event):
+            new_width = event.width
+            if self.current_topic and abs(new_width - self.last_canvas_width) > 10:
+                self.last_canvas_width = new_width
+                self.display_topic_content(self.current_topic)
+        self.content_canvas.bind('<Configure>', on_canvas_configure)
         
         # Content buttons
         content_btn_frame = ttk.Frame(right_panel)
@@ -125,15 +155,249 @@ class SGTHelperGUI:
             self.current_topic = topic
             self.display_topic_content(topic)
     
+    def render_latex_to_image(self, latex_text: str, dpi: int = 100, fontsize: int = 11, save_path: str = None) -> ImageTk.PhotoImage:
+        """Render LaTeX text to a PIL Image using matplotlib's mathtext, then convert to PhotoImage.
+        
+        Args:
+            latex_text: The LaTeX text to render
+            dpi: Resolution (dots per inch) for the image
+            fontsize: Font size for the LaTeX rendering
+            save_path: Optional path to save the image file (e.g., 'latex_output.png')
+        
+        Returns:
+            ImageTk.PhotoImage object for use in tkinter
+        """
+        # Check cache first
+        cache_key = f"{latex_text}_{dpi}_{fontsize}"
+        if cache_key in self.latex_cache:
+            return self.latex_cache[cache_key]
+        
+        try:
+            # Use matplotlib's mathtext renderer (works without LaTeX installation)
+            # Start with very small figure size - bbox_inches='tight' will crop to content
+            # This prevents excessive whitespace for short expressions like v_1
+            fig = plt.figure(figsize=(0.1, 0.1))
+            fig.patch.set_facecolor('white')
+            ax = fig.add_subplot(111)
+            ax.axis('off')
+            
+            # Render LaTeX using mathtext (usetex=False uses built-in renderer)
+            # Remove $ signs if present (we'll add them)
+            clean_text = latex_text.strip().strip('$')
+            # Use smaller fontsize for inline math to match text better
+            inline_fontsize = max(fontsize - 2, 8)  # Smaller for inline to match text size
+            ax.text(0.5, 0.5, f'${clean_text}$', fontsize=inline_fontsize, 
+                   ha='center', va='center', usetex=False)
+            
+            # Convert to image with zero padding
+            buf = io.BytesIO()
+            fig.savefig(buf, format='png', dpi=dpi, bbox_inches='tight', 
+                       facecolor='white', edgecolor='none', pad_inches=0, transparent=True)
+            buf.seek(0)
+            img = Image.open(buf)
+            
+            # Crop white space from the image
+            # Convert to RGB if RGBA
+            if img.mode == 'RGBA':
+                # Create white background
+                rgb_img = Image.new('RGB', img.size, (255, 255, 255))
+                rgb_img.paste(img, mask=img.split()[3])
+                img = rgb_img
+            
+            # Crop white space, but add a bit of white padding at the bottom for alignment
+            bbox = img.getbbox()
+            if bbox:
+                left, top, right, bottom = bbox
+                # Add a few pixels of white padding at the bottom to align with text baseline
+                bottom_padding = 2  # Add 3 pixels of white space at bottom
+                # Create new image with white background and padding
+                new_width = right - left
+                new_height = (bottom - top) + bottom_padding
+                padded_img = Image.new('RGB', (new_width, new_height), (255, 255, 255))
+                # Paste the cropped image onto the white background
+                padded_img.paste(img.crop((left, top, right, bottom)), (0, 0))
+                img = padded_img
+            
+            # Save the image if save_path is provided
+            if save_path:
+                img.save(save_path, 'PNG')
+                print(f"LaTeX image saved to: {save_path}")
+            
+            photo = ImageTk.PhotoImage(img)
+            
+            plt.close(fig)
+            
+            # Cache the result
+            self.latex_cache[cache_key] = photo
+            return photo
+        except Exception as e:
+            # If LaTeX rendering fails, return None
+            print(f"LaTeX rendering error: {e}")
+            return None
+    
+    def parse_latex(self, text: str) -> List[Tuple[str, bool]]:
+        """
+        Parse text and identify LaTeX portions.
+        Returns list of (content, is_latex) tuples.
+        Supports $...$ for inline math and $$...$$ for display math.
+        """
+        parts = []
+        # Pattern to match $...$ or $$...$$
+        pattern = r'\$\$([^$]+)\$\$|\$([^$]+)\$'
+        
+        last_end = 0
+        for match in re.finditer(pattern, text):
+            start, end = match.span()
+            # Add text before LaTeX
+            if start > last_end:
+                parts.append((text[last_end:start], False))
+            
+            # Add LaTeX (prefer $$...$$ over $...$)
+            latex_content = match.group(1) or match.group(2)
+            is_display = match.group(1) is not None  # True if $$...$$
+            parts.append((latex_content, True))
+            
+            last_end = end
+        
+        # Add remaining text
+        if last_end < len(text):
+            parts.append((text[last_end:], False))
+        
+        # If no LaTeX found, return entire text as non-LaTeX
+        if not parts:
+            parts.append((text, False))
+        
+        return parts
+    
     def display_topic_content(self, topic: str):
-        """Display content for the selected topic."""
+        """Display content for the selected topic with LaTeX rendering."""
         self.topic_label.config(text=f"Topic: {topic}")
-        self.content_text.delete(1.0, tk.END)
+        
+        # Clear canvas and image references
+        self.content_canvas.delete("all")
+        self.content_canvas.image_refs = []
         
         if topic in self.data_store:
             entries = self.data_store[topic]
+            y_position = 20
+            font = ("Arial", 11)
+            line_height = 25
+            margin_left = 10
+            text_indent = 40
+            canvas_width = self.content_canvas.winfo_width() or 800
+            self.last_canvas_width = canvas_width
+            
             for i, entry in enumerate(entries, 1):
-                self.content_text.insert(tk.END, f"{i}. {entry}\n\n")
+                # Entry number
+                self.content_canvas.create_text(margin_left, y_position, 
+                                              text=f"{i}. ", anchor="nw", 
+                                              font=("Arial", 11, "bold"))
+                
+                # Parse and render entry
+                parts = self.parse_latex(entry)
+                
+                x_position = text_indent
+                current_y = y_position
+                max_height_in_line = line_height
+                
+                for part_text, is_latex in parts:
+                    if is_latex:
+                        # Render LaTeX inline with text - use smaller size for compact rendering
+                        latex_image = self.render_latex_to_image(part_text, dpi=100, fontsize=12)
+                        if latex_image:
+                            # Get image dimensions
+                            img_width = latex_image.width()
+                            img_height = latex_image.height()
+                            
+                            # Check if LaTeX fits on current line
+                            if x_position + img_width > canvas_width - 20 and x_position > text_indent:
+                                # Move to next line only if it doesn't fit
+                                current_y += max_height_in_line
+                                x_position = text_indent
+                                max_height_in_line = line_height
+                            
+                            # Align LaTeX inline with text - position at same y as text
+                            # For inline math, align the bottom of LaTeX with text baseline
+                            # Text baseline is approximately at current_y + line_height * 0.8
+                            text_baseline = current_y + int(line_height * 0.8)
+                            # Position LaTeX so its baseline aligns with text baseline
+                            # Most LaTeX sits on the baseline, so align bottom of image with baseline
+                            img_y = text_baseline - img_height
+                            
+                            # Ensure LaTeX doesn't go above the line (clip to current_y)
+                            if img_y < current_y:
+                                img_y = current_y
+                            
+                            img_id = self.content_canvas.create_image(x_position, img_y, 
+                                                                    anchor="nw", image=latex_image)
+                            # Keep reference to prevent garbage collection
+                            self.content_canvas.image_refs.append(latex_image)
+                            
+                            # Update position to continue after LaTeX on same line
+                            x_position += img_width + 1  # Minimal gap after LaTeX
+                            # Update line height to accommodate LaTeX if it extends below
+                            line_bottom = max(current_y + line_height, img_y + img_height)
+                            max_height_in_line = line_bottom - current_y
+                        else:
+                            # Fallback to text if rendering fails
+                            fallback_text = f"${part_text}$"
+                            text_id = self.content_canvas.create_text(x_position, current_y, 
+                                                                    text=fallback_text, 
+                                                                    anchor="nw", font=font)
+                            bbox = self.content_canvas.bbox(text_id)
+                            if bbox:
+                                x_position = bbox[2] + 5
+                    else:
+                        # Regular text - handle line breaks and word wrapping
+                        if part_text.strip():
+                            lines = part_text.split('\n')
+                            for line_idx, line in enumerate(lines):
+                                if line.strip():
+                                    words = line.split(' ')
+                                    for word in words:
+                                        if not word:
+                                            continue
+                                        
+                                        word_with_space = word + ' '
+                                        
+                                        # Estimate word width first
+                                        # Create text at a position we can measure
+                                        test_id = self.content_canvas.create_text(0, 0, 
+                                                                                 text=word_with_space, 
+                                                                                 font=font, anchor="nw")
+                                        bbox = self.content_canvas.bbox(test_id)
+                                        word_width = (bbox[2] - bbox[0]) if bbox else len(word_with_space) * 7
+                                        
+                                        # Check if word fits on current line
+                                        if x_position + word_width > canvas_width - 20 and x_position > text_indent:
+                                            current_y += max_height_in_line
+                                            x_position = text_indent
+                                            max_height_in_line = line_height
+                                        
+                                        # Delete test item and create actual text at correct position
+                                        self.content_canvas.delete(test_id)
+                                        text_id = self.content_canvas.create_text(x_position, current_y, 
+                                                                                text=word_with_space, 
+                                                                                font=font, anchor="nw")
+                                        bbox = self.content_canvas.bbox(text_id)
+                                        
+                                        if bbox:
+                                            x_position = bbox[2]
+                                            max_height_in_line = max(max_height_in_line, line_height)
+                                
+                                # Handle explicit line breaks
+                                if line_idx < len(lines) - 1:
+                                    current_y += max_height_in_line
+                                    x_position = text_indent
+                                    max_height_in_line = line_height
+                
+                y_position = current_y + max_height_in_line + 20  # Space between entries
+            
+            # Update scroll region
+            self.content_canvas.update_idletasks()
+            scroll_region = self.content_canvas.bbox("all")
+            if scroll_region:
+                self.content_canvas.config(scrollregion=scroll_region)
         
         self.status_label.config(text=f"Displaying content for: {topic}")
     
@@ -384,7 +648,17 @@ def main():
     root = tk.Tk()
     app = SGTHelperGUI(root)
     root.mainloop()
+    
+def test_program():
+    root = tk.Tk()
+    app = SGTHelperGUI(root)
+    txt = "v_1"
+    app.render_latex_to_image(txt, 100, 10, "img/img3.png")
 
 
 if __name__ == "__main__":
-    main()
+    test = False
+    if test:
+        test_program()
+    else:
+        main()
