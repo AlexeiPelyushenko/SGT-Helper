@@ -1,1 +1,11 @@
-{}
+{
+    "Theorems": [],
+    "Types of graphs": [
+        "Dense graph: A graph where the number of edges is close to the maximal number of edges possible in the graph. |E| = theta(n^2)",
+        "Sparse graph: A graph where the number of edges is close to the minimal number of edges possible. |E| = O(n)",
+        "Expander graph: For every set of vertices S with S <= n/2, adding the set of neighbors of vertices in S to S will increase the size of the set by at least some c|S|."
+    ],
+    "Eigenvectors": [
+        "For eigenvectors v1, v2, and eigenvalues a1, a2, a1 != a2, v1 will be orthogonal to v2."
+    ]
+}
