@@ -9,5 +9,5 @@ Features:
 Feel free to clone it. If you want to contribute to the repo either by information in info.json or by improving the program itself let me know, it'd be much appreciated.
 
 
-<img width="900" height="728" alt="SGT-Helper" src="https://github.com/user-attachments/assets/14421555-8d1d-4b90-a57f-2d13bce3d1c5" />
+<img width="899" height="727" alt="SGT-Helper" src="https://github.com/user-attachments/assets/65348bf4-3fab-4f11-a111-409fa8c78081" />
 
