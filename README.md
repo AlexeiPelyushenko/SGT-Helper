@@ -7,3 +7,7 @@ Features:
 - Data gets saved between sessions
 
 Feel free to clone it. If you want to contribute to the repo either by information in info.json or by improving the program itself let me know, it'd be much appreciated.
+
+
+<img width="899" height="728" alt="SGT-Helper" src="https://github.com/user-attachments/assets/37dab624-92b1-4bf5-9bdf-9ed9006d871b" />
+
